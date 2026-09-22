@@ -189,7 +189,7 @@ function TaskRow({ task }: { task: ReceivingTask }) {
   const done = task.remainingBaseQuantity <= 0;
   const received = task.priorReceivedBaseQuantity;
   return (
-    <View className={`rounded-2xl border border-black/5 bg-surface-card p-4 ${done ? 'opacity-60' : ''}`}>
+    <View className={`rounded-2xl border border-surface-line bg-surface-card p-4 ${done ? 'opacity-60' : ''}`}>
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-0.5">
           <Text className="text-xs font-medium text-ink-muted">
@@ -221,8 +221,8 @@ function TaskRow({ task }: { task: ReceivingTask }) {
 
 function Flag({ label }: { label: string }) {
   return (
-    <View className="rounded-md bg-brand/10 px-2 py-0.5">
-      <Text className="text-[10px] font-semibold uppercase text-brand-dark">{label}</Text>
+    <View className="rounded-md bg-brand-tint px-2 py-0.5">
+      <Text className="text-[10px] font-semibold uppercase text-brand">{label}</Text>
     </View>
   );
 }

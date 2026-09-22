@@ -92,3 +92,30 @@ export type ScannerSession = {
   rowVersion: number;
   warehouseId: UUID;
 };
+
+/** A row under "Needs you" — work waiting on this actor. */
+export type ActionItem = {
+  key: string;
+  title: string;
+  /** Which workspace it belongs to, shown as the subtitle. */
+  workspace: string;
+  count: number;
+  route: string | null;
+};
+
+/** A row under "Across your company" — status, not a to-do. */
+export type ActivityLine = {
+  key: string;
+  label: string;
+  detail: string;
+  route: string | null;
+};
+
+/** Everything the Home tab renders in one round trip. */
+export type HomeSummary = {
+  greetingName: string;
+  tiles: HubMetric[];
+  needsYou: ActionItem[];
+  acrossCompany: ActivityLine[];
+  aiSummary: { body: string; actionLabel: string } | null;
+};

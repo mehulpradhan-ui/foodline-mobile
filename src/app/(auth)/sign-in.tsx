@@ -17,7 +17,7 @@ export default function SignIn() {
     setBusy(true);
     try {
       await signIn();
-      router.replace('/(app)/hub');
+      router.replace('/(app)/(tabs)');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed');
     } finally {

@@ -118,6 +118,25 @@ Every screen must work in demo mode — it is how the app gets demoed on a plane
 in a customer's warehouse, and in any environment where Supabase is unreachable.
 When you add a screen, add its fixtures.
 
+## The designs are the spec
+
+`Foodline-Mobile-01..05` (22 Sep 2026) define this app: Master Admin, Sales,
+Purchasing, Inventory Employee, Routes/Driver. Build to them.
+
+- **Shell:** five tabs — Home · My Work · Activity · Search · More. "More" is the
+  workspace directory, not a settings dump.
+- **Header on every screen:** "Foodline AI ⌄", a blue context pill (`Admin · All
+  operations`, `Inventory · Atlanta warehouse`), and the actor's avatar. The pill
+  states role *and* scope — it is how someone knows which company they are touching.
+- **Palette is sampled from the mockups**, in `tailwind.config.js`:
+  brand `#3B65ED`, pressed `#1D47E5`, tint `#EAF1FD`, ink `#0B1020`, muted `#475776`,
+  surface `#F7FAFD`, warn tint `#FEF4D9`. Do not introduce a colour that is not in
+  that file, and do not hand-pick one — take it from a mockup and add it there.
+- **The app is role-scoped.** An inventory employee sees stock work; an admin sees
+  everything. Gate on the `permissionKeys` in the session, never on a hardcoded role
+  string.
+- Icons are `@expo/vector-icons` Feather, to match the line weight in the designs.
+
 ## Conventions
 
 - TypeScript strict. No `any` outside adapter mapper boundaries (already isolated there).

@@ -1,7 +1,10 @@
 import { getSupabase } from '../supabase';
 import type { FoodlineApi } from './ports';
 import type {
+  ActionItem,
+  ActivityLine,
   Company,
+  HomeSummary,
   HubMetric,
   Item,
   PurchaseOrder,
@@ -156,6 +159,55 @@ export const supabaseApi: FoodlineApi = {
       if (!(await workos.hasStoredSession())) return null;
       const payload = await call(companyId, 'application_session_context', { p_company_id: companyId });
       return toSession(payload);
+    },
+  },
+
+  home: {
+    /**
+     * Assembled from the commercial dashboard RPC. The ERP's payload shape for
+     * `needs_you` / `across_company` is not pinned down yet, so unknown keys are
+     * simply absent rather than guessed — the screen degrades to tiles only.
+     */
+    async summary(companyId): Promise<HomeSummary> {
+      const payload = (await call(companyId, 'get_current_commercial_dashboard')) as Row;
+      const tiles = asRows(payload, 'metrics', 'tiles', 'kpis').map((r) => ({
+        key: str(r.key ?? r.id),
+        label: str(r.label ?? r.title),
+        value: str(r.value ?? r.formatted_value),
+        delta: numOrNull(r.delta ?? r.change_percent),
+        tone: (r.tone as HomeSummary['tiles'][number]['tone']) ?? ('neutral' as const),
+      }));
+      const needsYou = asRows(payload.needs_you ?? payload.needsYou).map(
+        (r): ActionItem => ({
+          key: str(r.key ?? r.id),
+          title: str(r.title ?? r.label),
+          workspace: str(r.workspace ?? r.module),
+          count: num(r.count),
+          route: (r.route as string | null) ?? null,
+        })
+      );
+      const acrossCompany = asRows(payload.across_company ?? payload.acrossCompany).map(
+        (r): ActivityLine => ({
+          key: str(r.key ?? r.id),
+          label: str(r.label),
+          detail: str(r.detail ?? r.summary),
+          route: (r.route as string | null) ?? null,
+        })
+      );
+      const ai = payload.ai_summary ?? payload.aiSummary;
+      return {
+        greetingName: str(payload.greeting_name ?? payload.greetingName),
+        tiles: tiles.slice(0, 2),
+        needsYou,
+        acrossCompany,
+        aiSummary:
+          ai && typeof ai === 'object'
+            ? {
+                body: str((ai as Row).body ?? (ai as Row).summary),
+                actionLabel: str((ai as Row).action_label ?? (ai as Row).actionLabel, 'Review impact'),
+              }
+            : null,
+      };
     },
   },
 

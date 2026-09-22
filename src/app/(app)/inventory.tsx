@@ -31,7 +31,7 @@ export default function Items() {
         <View className="gap-3 px-5 pb-3 pt-2">
           <Text className="text-2xl font-bold text-ink">Inventory</Text>
           <TextInput
-            className="h-11 rounded-xl border border-black/10 bg-surface-card px-4 text-base text-ink"
+            className="h-11 rounded-xl border border-surface-line bg-surface-card px-4 text-base text-ink"
             placeholder="Search name or SKU"
             placeholderTextColor="#9CA3AF"
             autoCapitalize="none"
@@ -42,7 +42,7 @@ export default function Items() {
             accessibilityRole="switch"
             accessibilityState={{ checked: belowParOnly }}
             onPress={() => setBelowParOnly((v) => !v)}
-            className={`self-start rounded-full px-3 py-1.5 ${belowParOnly ? 'bg-brand' : 'bg-black/5'}`}
+            className={`self-start rounded-full px-3 py-1.5 ${belowParOnly ? 'bg-brand' : 'bg-surface-card border border-surface-line'}`}
           >
             <Text className={`text-xs font-semibold ${belowParOnly ? 'text-white' : 'text-ink-muted'}`}>
               Below par only
@@ -71,7 +71,7 @@ export default function Items() {
 
 function ItemRow({ item }: { item: Item }) {
   return (
-    <View className="rounded-2xl border border-black/5 bg-surface-card p-4">
+    <View className="rounded-2xl border border-surface-line bg-surface-card p-4">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-0.5">
           <Text className="text-xs font-medium text-ink-muted">{item.sku}</Text>

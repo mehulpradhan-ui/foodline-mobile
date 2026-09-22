@@ -1,5 +1,14 @@
 import type { FoodlineApi } from './ports';
-import type { HubMetric, Item, PurchaseOrder, ReceivingTask, Session } from './types';
+import type {
+  ActionItem,
+  ActivityLine,
+  HomeSummary,
+  HubMetric,
+  Item,
+  PurchaseOrder,
+  ReceivingTask,
+  Session,
+} from './types';
 
 const COMPANY_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -50,6 +59,31 @@ const BARCODES: Record<string, string> = {
   '0055512345678': 't2',
 };
 
+const NEEDS_YOU: ActionItem[] = [
+  { key: 'quotes', title: '6 quotes to confirm', workspace: 'Sales & Customers', count: 6, route: null },
+  { key: 'approvals', title: '2 purchase approvals', workspace: 'Purchasing', count: 2, route: '/purchasing' },
+  { key: 'exceptions', title: '3 delivery exceptions', workspace: 'Routes & Delivery', count: 3, route: null },
+];
+
+const ACROSS_COMPANY: ActivityLine[] = [
+  { key: 'warehouse', label: 'Warehouse', detail: '8 picks in progress', route: '/receiving' },
+  { key: 'delivery', label: 'Delivery', detail: '24 of 36 stops complete', route: null },
+];
+
+const HOME: HomeSummary = {
+  greetingName: 'Chris',
+  tiles: [
+    { key: 'open-orders', label: 'Open orders', value: '39', delta: null, tone: 'neutral' },
+    { key: 'routes-active', label: 'Routes active', value: '4', delta: null, tone: 'neutral' },
+  ],
+  needsYou: NEEDS_YOU,
+  acrossCompany: ACROSS_COMPANY,
+  aiSummary: {
+    body: "Two incoming deliveries may affect today's orders.",
+    actionLabel: 'Review impact',
+  },
+};
+
 const wait = (ms = 180) => new Promise((r) => setTimeout(r, ms));
 let signedIn = true;
 
@@ -66,6 +100,12 @@ export const demoApi: FoodlineApi = {
     async resolve() {
       await wait(120);
       return signedIn ? SESSION : null;
+    },
+  },
+  home: {
+    async summary() {
+      await wait();
+      return HOME;
     },
   },
   hub: {

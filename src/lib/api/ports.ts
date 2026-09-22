@@ -1,4 +1,5 @@
 import type {
+  HomeSummary,
   HubMetric,
   Item,
   PurchaseOrder,
@@ -21,6 +22,10 @@ export interface FoodlineApi {
     signOut(): Promise<void>;
     /** `application_session_context` — null when no stored WorkOS session. */
     resolve(companyId: UUID | null): Promise<Session | null>;
+  };
+  home: {
+    /** Powers the Home tab. One call, so the first screen is one spinner. */
+    summary(companyId: UUID): Promise<HomeSummary>;
   };
   hub: {
     metrics(companyId: UUID): Promise<HubMetric[]>;

@@ -1,52 +1,37 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import React from 'react';
-import { Text, type ColorValue } from 'react-native';
 
-import { Loading, Screen } from '@/components/ui';
+import { COLORS, Loading, Screen } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 
-function TabIcon({ glyph, color }: { glyph: string; color: ColorValue }) {
-  return <Text style={{ color, fontSize: 20 }}>{glyph}</Text>;
-}
-
 export default function AppLayout() {
-  const { session, loading } = useAuth();
+  const { session, companyId, loading } = useAuth();
 
   if (loading) {
     return (
       <Screen>
-        <Loading />
+        <Loading label="Starting Foodline" />
       </Screen>
     );
   }
   if (!session) return <Redirect href="/(auth)/sign-in" />;
+  if (!companyId) return <Redirect href="/(auth)/select-company" />;
 
   return (
-    <Tabs
+    <Stack
       screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#008CD2',
-        tabBarInactiveTintColor: '#6B7280',
-        tabBarStyle: { backgroundColor: '#FFFFFF', borderTopColor: 'rgba(0,0,0,0.06)' },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        headerShown: true,
+        headerTintColor: COLORS.brand,
+        headerTitleStyle: { color: COLORS.ink, fontWeight: '700' },
+        headerStyle: { backgroundColor: COLORS.surface },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: COLORS.surface },
       }}
     >
-      <Tabs.Screen
-        name="hub"
-        options={{ title: 'Hub', tabBarIcon: ({ color }) => <TabIcon glyph="◎" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="items"
-        options={{ title: 'Inventory', tabBarIcon: ({ color }) => <TabIcon glyph="▦" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="orders"
-        options={{ title: 'Purchasing', tabBarIcon: ({ color }) => <TabIcon glyph="⇄" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="receiving"
-        options={{ title: 'Receiving', tabBarIcon: ({ color }) => <TabIcon glyph="⌗" color={color} /> }}
-      />
-    </Tabs>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="inventory" options={{ title: 'Inventory' }} />
+      <Stack.Screen name="purchasing" options={{ title: 'Purchasing' }} />
+      <Stack.Screen name="receiving" options={{ title: 'Receiving' }} />
+    </Stack>
   );
 }

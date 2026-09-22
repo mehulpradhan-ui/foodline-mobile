@@ -8,12 +8,12 @@ import { useCompanyId } from '@/features/auth/auth-context';
 import { api, type PurchaseOrder } from '@/lib/api';
 
 const STATUS_TONE: Record<PurchaseOrder['status'], string> = {
-  draft: 'bg-black/5 text-ink-muted',
-  sent: 'bg-brand/10 text-brand-dark',
-  confirmed: 'bg-brand/10 text-brand-dark',
-  partial: 'bg-warn/10 text-warn',
-  received: 'bg-accent/10 text-accent-dark',
-  cancelled: 'bg-danger/10 text-danger',
+  draft: 'bg-surface text-ink-muted',
+  sent: 'bg-brand-tint text-brand',
+  confirmed: 'bg-brand-tint text-brand',
+  partial: 'bg-warn-tint text-warn',
+  received: 'bg-good-tint text-good',
+  cancelled: 'bg-danger-tint text-danger',
 };
 
 export default function Orders() {
@@ -33,7 +33,7 @@ export default function Orders() {
             accessibilityRole="switch"
             accessibilityState={{ checked: showAll }}
             onPress={() => setShowAll((v) => !v)}
-            className={`self-start rounded-full px-3 py-1.5 ${showAll ? 'bg-brand' : 'bg-black/5'}`}
+            className={`self-start rounded-full px-3 py-1.5 ${showAll ? 'bg-brand' : 'bg-surface-card border border-surface-line'}`}
           >
             <Text className={`text-xs font-semibold ${showAll ? 'text-white' : 'text-ink-muted'}`}>
               {showAll ? 'Showing all orders' : 'Open orders only'}
@@ -53,7 +53,7 @@ export default function Orders() {
             refreshControl={<RefreshControl refreshing={orders.isRefetching} onRefresh={() => orders.refetch()} />}
             ListEmptyComponent={<EmptyState title="No purchase orders" hint="Open orders will appear here." />}
             renderItem={({ item }) => (
-              <View className="rounded-2xl border border-black/5 bg-surface-card p-4">
+              <View className="rounded-2xl border border-surface-line bg-surface-card p-4">
                 <View className="flex-row items-center justify-between">
                   <Text className="text-base font-semibold text-ink">{item.number}</Text>
                   <View className={`rounded-full px-2.5 py-1 ${STATUS_TONE[item.status]}`}>
