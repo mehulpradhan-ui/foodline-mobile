@@ -1,23 +1,39 @@
 import 'react-native-url-polyfill/auto';
-import { AppState } from 'react-native';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { env } from './env';
-import { secureStorage } from './secure-storage';
+import { getAccessToken } from '@/features/auth/workos';
 import type { Database } from './database.types';
+import { env } from './env';
 
-export const supabase = createClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
-  auth: {
-    storage: secureStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    // Native has no URL bar; deep links are handled explicitly by the auth flow.
-    detectSessionInUrl: false,
-  },
-});
+/**
+ * Mirrors `createApplicationSupabaseClient` in the web ERP
+ * (src/integrations/supabase/application-scope.server.ts).
+ *
+ * WorkOS owns the session; Supabase receives only the verified WorkOS access
+ * token for RLS/RPC. Company selection travels in the `x-erp-company-id`
+ * header — selection is NOT authorization; every public RPC re-validates
+ * active DB membership server-side.
+ *
+ * Supabase Auth is deliberately unused. Do not call `supabase.auth.*`.
+ */
 
-// Refresh tokens only while the app is actually in the foreground.
-AppState.addEventListener('change', (state) => {
-  if (state === 'active') supabase.auth.startAutoRefresh();
-  else supabase.auth.stopAutoRefresh();
-});
+let client: SupabaseClient<Database> | null = null;
+let clientCompanyId: string | null = null;
+
+export function getSupabase(companyId: string | null): SupabaseClient<Database> {
+  if (client && clientCompanyId === companyId) return client;
+
+  clientCompanyId = companyId;
+  client = createClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
+    accessToken: async () => (await getAccessToken()) ?? '',
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: companyId ? { headers: { 'x-erp-company-id': companyId } } : undefined,
+  });
+  return client;
+}
+
+/** Drop the memoised client — call on sign-out or company switch. */
+export function resetSupabase(): void {
+  client = null;
+  clientCompanyId = null;
+}

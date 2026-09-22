@@ -1,25 +1,43 @@
 import Constants from 'expo-constants';
 
-/**
- * All runtime config comes from EXPO_PUBLIC_* env vars (inlined at build time).
- * Nothing secret goes here — the anon key is safe to ship, RLS is the guard.
- */
 function required(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(
-      `Missing ${name}. Copy .env.example to .env.local and fill it in, then restart the bundler with --clear.`
+      `Missing ${name}. Copy .env.example to .env.local and fill it in, then restart with \`npx expo start --clear\`.`
     );
   }
   return value;
 }
 
+export const isDemoMode = process.env.EXPO_PUBLIC_DEMO_MODE === '1';
+
+/**
+ * Runtime config. Only publishable values live here — the Supabase publishable
+ * key and the WorkOS client id are both browser-safe by design. RLS and the
+ * WorkOS session are what actually protect the data.
+ *
+ * In demo mode nothing is required, so the app boots on a fresh clone.
+ */
 export const env = {
-  supabaseUrl: required('EXPO_PUBLIC_SUPABASE_URL', process.env.EXPO_PUBLIC_SUPABASE_URL),
-  supabaseAnonKey: required('EXPO_PUBLIC_SUPABASE_ANON_KEY', process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY),
-  /** Optional: set when the ERP exposes a REST/Edge gateway in front of Supabase. */
-  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? null,
+  get supabaseUrl() {
+    return isDemoMode
+      ? 'https://demo.invalid'
+      : required('EXPO_PUBLIC_SUPABASE_URL', process.env.EXPO_PUBLIC_SUPABASE_URL);
+  },
+  get supabasePublishableKey() {
+    return isDemoMode
+      ? 'demo'
+      : required('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY', process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  },
+  get workosClientId() {
+    return isDemoMode
+      ? 'demo'
+      : required('EXPO_PUBLIC_WORKOS_CLIENT_ID', process.env.EXPO_PUBLIC_WORKOS_CLIENT_ID);
+  },
+  /** AuthKit domain, e.g. https://auth.foodlineai.com or the WorkOS-hosted one. */
+  get workosAuthDomain() {
+    return process.env.EXPO_PUBLIC_WORKOS_AUTH_DOMAIN ?? 'https://api.workos.com';
+  },
   appEnv: (process.env.EXPO_PUBLIC_APP_ENV ?? 'development') as 'development' | 'staging' | 'production',
   version: Constants.expoConfig?.version ?? '0.0.0',
 } as const;
-
-export const isDemoMode = process.env.EXPO_PUBLIC_DEMO_MODE === '1';

@@ -3,8 +3,8 @@ import React from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Card, ErrorState, Loading, Screen } from '@/components/ui';
-import { useAuth } from '@/features/auth/auth-context';
+import { Button, Card, EmptyState, ErrorState, Loading, Screen } from '@/components/ui';
+import { useAuth, useCompanyId } from '@/features/auth/auth-context';
 import { api, type HubMetric } from '@/lib/api';
 import { env, isDemoMode } from '@/lib/env';
 
@@ -16,8 +16,12 @@ const TONE_TEXT: Record<HubMetric['tone'], string> = {
 };
 
 export default function Hub() {
-  const { session, signOut } = useAuth();
-  const metrics = useQuery({ queryKey: ['hub', 'metrics'], queryFn: () => api.hub.metrics() });
+  const { session, company, signOut } = useAuth();
+  const companyId = useCompanyId();
+  const metrics = useQuery({
+    queryKey: ['hub', 'metrics', companyId],
+    queryFn: () => api.hub.metrics(companyId),
+  });
 
   return (
     <Screen>
@@ -27,8 +31,8 @@ export default function Hub() {
           refreshControl={<RefreshControl refreshing={metrics.isRefetching} onRefresh={() => metrics.refetch()} />}
         >
           <View className="gap-1">
-            <Text className="text-sm font-medium text-ink-muted">{session?.organizationName}</Text>
-            <Text className="text-2xl font-bold text-ink">Good morning, {session?.displayName}</Text>
+            <Text className="text-sm font-medium text-ink-muted">{company?.name ?? 'Foodline'}</Text>
+            <Text className="text-2xl font-bold text-ink">Today</Text>
             {isDemoMode ? (
               <Text className="text-xs font-semibold uppercase text-warn">Demo data · v{env.version}</Text>
             ) : null}
@@ -40,6 +44,8 @@ export default function Hub() {
             </View>
           ) : metrics.isError ? (
             <ErrorState message={(metrics.error as Error).message} onRetry={() => metrics.refetch()} />
+          ) : metrics.data.length === 0 ? (
+            <EmptyState title="No metrics yet" hint="The dashboard populates once there is activity." />
           ) : (
             <View className="flex-row flex-wrap gap-3">
               {metrics.data.map((m) => (
@@ -57,9 +63,10 @@ export default function Hub() {
           )}
 
           <Card>
-            <Text className="text-base font-semibold text-ink">Signed in as</Text>
+            <Text className="text-base font-semibold text-ink">Session</Text>
             <Text className="mt-1 text-sm text-ink-muted">
-              {session?.email} · {session?.role}
+              {company?.roleKey ?? 'unknown role'} · {session?.companies.length ?? 0} company
+              {session?.companies.length === 1 ? '' : 'ies'}
             </Text>
             <View className="mt-4">
               <Button label="Sign out" variant="ghost" onPress={() => void signOut()} />

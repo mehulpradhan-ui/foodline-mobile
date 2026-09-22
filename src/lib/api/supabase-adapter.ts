@@ -1,30 +1,51 @@
-import { supabase } from '../supabase';
+import { getSupabase } from '../supabase';
 import type { FoodlineApi } from './ports';
-import type { HubMetric, Item, PurchaseOrder, Session, StockStatus } from './types';
+import type {
+  Company,
+  HubMetric,
+  Item,
+  PurchaseOrder,
+  ReceivingTask,
+  ScannerSession,
+  Session,
+  StockStatus,
+  UUID,
+} from './types';
+import * as workos from '@/features/auth/workos';
 
 /**
- * ⚠️ WIRING REQUIRED — one place, on purpose.
+ * Live adapter. Every call is an RPC — there are no direct table reads, because
+ * the ERP retired that path ("Use the Supabase Data API, RLS-protected views,
+ * and approved RPCs" — supabase/functions/api-v1/index.ts returns 410).
  *
- * The live ERP's table/view/function names are not guessed here. Fill these in
- * from the real Supabase project (or point them at purpose-built views), then
- * adjust the three mappers below. Nothing outside this file needs to change.
- *
- * Recommended: create read-optimised views in Supabase (`mobile_items_v`,
- * `mobile_purchase_orders_v`, `mobile_hub_metrics_v`) so the app is insulated
- * from ERP schema churn and RLS is expressed once, at the view.
+ * RPC names and argument shapes come from the generated `database.types.ts`,
+ * copied verbatim from the ERP repo. Regenerate both together:
+ *   supabase gen types typescript --project-id fzavogttmmyyeuguvmry
  */
-const TABLES = {
-  items: 'mobile_items_v',
-  purchaseOrders: 'mobile_purchase_orders_v',
-  purchaseOrderLines: 'mobile_purchase_order_lines_v',
-  hubMetrics: 'mobile_hub_metrics_v',
-  profiles: 'profiles',
-} as const;
 
-/** Business logic that must match the ERP lives server-side, not here. */
-const RPC = {
-  recordReceipt: 'mobile_record_receipt',
-} as const;
+type Row = Record<string, unknown>;
+
+const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
+const num = (v: unknown, fallback = 0): number => {
+  const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : NaN;
+  return Number.isFinite(n) ? n : fallback;
+};
+const numOrNull = (v: unknown): number | null => {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : NaN;
+  return Number.isFinite(n) ? n : null;
+};
+
+function asRows(payload: unknown, ...keys: string[]): Row[] {
+  if (Array.isArray(payload)) return payload as Row[];
+  if (payload && typeof payload === 'object') {
+    for (const key of keys) {
+      const value = (payload as Row)[key];
+      if (Array.isArray(value)) return value as Row[];
+    }
+  }
+  return [];
+}
 
 function deriveStatus(onHand: number, par: number | null): StockStatus {
   if (onHand <= 0) return 'out';
@@ -34,166 +55,189 @@ function deriveStatus(onHand: number, par: number | null): StockStatus {
   return 'ok';
 }
 
- 
-function toItem(row: any): Item {
-  const onHand = Number(row.on_hand ?? 0);
-  const parLevel = row.par_level === null || row.par_level === undefined ? null : Number(row.par_level);
+function toItem(r: Row): Item {
+  const onHand = num(r.on_hand ?? r.quantity_on_hand);
+  const parLevel = numOrNull(r.par_level ?? r.target_level);
   return {
-    id: String(row.id),
-    sku: String(row.sku ?? ''),
-    name: String(row.name ?? ''),
-    category: row.category ?? null,
-    uom: String(row.uom ?? 'EA'),
+    id: str(r.id ?? r.product_id),
+    sku: str(r.sku ?? r.product_sku),
+    name: str(r.name ?? r.product_name),
+    category: (r.category as string | null) ?? null,
+    uom: str(r.uom_code ?? r.uom, 'EA'),
     onHand,
-    onOrder: Number(row.on_order ?? 0),
+    onOrder: num(r.on_order ?? r.quantity_on_order),
     parLevel,
-    daysCover: row.days_cover === null || row.days_cover === undefined ? null : Number(row.days_cover),
-    lastCost: row.last_cost === null || row.last_cost === undefined ? null : Number(row.last_cost),
-    primaryVendorName: row.primary_vendor_name ?? null,
-    status: (row.status as StockStatus) ?? deriveStatus(onHand, parLevel),
+    daysCover: numOrNull(r.days_cover),
+    lastCost: numOrNull(r.last_cost ?? r.unit_cost),
+    primaryVendorName: (r.primary_vendor_name as string | null) ?? null,
+    status: (r.status as StockStatus) ?? deriveStatus(onHand, parLevel),
   };
 }
 
-function toPurchaseOrder(row: any): PurchaseOrder {
+function toPurchaseOrder(r: Row): PurchaseOrder {
   return {
-    id: String(row.id),
-    number: String(row.number ?? row.po_number ?? ''),
-    vendorId: String(row.vendor_id ?? ''),
-    vendorName: String(row.vendor_name ?? ''),
-    status: row.status ?? 'draft',
-    expectedAt: row.expected_at ?? null,
-    total: row.total === null || row.total === undefined ? null : Number(row.total),
-    lineCount: Number(row.line_count ?? 0),
+    id: str(r.id ?? r.purchase_order_id),
+    number: str(r.document_number ?? r.number ?? r.po_number),
+    vendorId: str(r.vendor_id),
+    vendorName: str(r.vendor_name),
+    status: (r.status as PurchaseOrder['status']) ?? 'draft',
+    expectedAt: (r.expected_at as string | null) ?? (r.expected_delivery_date as string | null) ?? null,
+    total: numOrNull(r.total ?? r.total_amount),
+    lineCount: num(r.line_count),
   };
 }
- 
 
-type RpcFn = (
-  fn: string,
-  args: Record<string, unknown>
-) => Promise<{ data: unknown; error: { message: string } | null }>;
+function toReceivingTask(r: Row): ReceivingTask {
+  return {
+    taskId: str(r.task_id),
+    goodsReceiptId: str(r.goods_receipt_id),
+    purchaseOrderVersionLineId: str(r.purchase_order_version_line_id),
+    productId: str(r.product_id),
+    productSku: str(r.product_sku),
+    productName: str(r.product_name),
+    lineNumber: num(r.line_number),
+    uomCode: str(r.ordered_uom_code, 'EA'),
+    orderedBaseQuantity: num(r.ordered_base_quantity),
+    priorReceivedBaseQuantity: num(r.prior_received_base_quantity),
+    remainingBaseQuantity: num(r.remaining_base_quantity),
+    receiptDocumentNumber: str(r.receipt_document_number),
+    receiptRowVersion: num(r.receipt_row_version),
+    isEligible: r.is_eligible === true,
+    blockerCode: (r.blocker_code as string | null) || null,
+    tracksLots: r.track_lots === true,
+    tracksExpiry: r.track_expiry === true,
+    catchWeight: r.catch_weight === true,
+    temperatureRequired: r.temperature_required === true,
+  };
+}
 
-function unwrap<T>(data: T | null, error: { message: string } | null, what: string): T {
-  if (error) throw new Error(`${what} failed: ${error.message}`);
-  if (data === null) throw new Error(`${what} returned no data`);
+// The generated Database type is huge and RPC arg types are exact; the app
+// intentionally goes through one loosely-typed call helper rather than
+// threading 343 signatures through the UI. Payload shapes are validated by the
+// mappers above, which is where a schema change should surface.
+type Rpc = (name: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+async function call(companyId: UUID | null, name: string, args?: Record<string, unknown>): Promise<unknown> {
+  const client = getSupabase(companyId);
+  const { data, error } = await (client.rpc as unknown as Rpc)(name, args);
+  if (error) throw new Error(`${name}: ${error.message}`);
   return data;
 }
 
+function toSession(payload: unknown): Session {
+  const p = (payload ?? {}) as Row;
+  const companies = asRows(p.companies).map(
+    (c): Company => ({
+      id: str(c.id),
+      name: str(c.name),
+      slug: str(c.slug),
+      roleKey: str(c.roleKey ?? c.role_key),
+      permissionKeys: Array.isArray(c.permissionKeys)
+        ? (c.permissionKeys as string[])
+        : Array.isArray(c.permission_keys)
+          ? (c.permission_keys as string[])
+          : [],
+    })
+  );
+  return {
+    actorId: str(p.actorId ?? p.actor_id),
+    companyId: (p.companyId as string | null) ?? (p.company_id as string | null) ?? null,
+    companies,
+  };
+}
+
 export const supabaseApi: FoodlineApi = {
-  auth: {
-    async signInWithPassword(email, password) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw new Error(error.message);
-      const user = data.user;
-      if (!user) throw new Error('Sign-in returned no user');
-      return mapSession(user.id, user.email ?? email);
-    },
+  session: {
+    signIn: workos.signIn,
     async signOut() {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw new Error(error.message);
+      await workos.signOut();
     },
-    async getSession() {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
-      if (!user) return null;
-      return mapSession(user.id, user.email ?? '');
+    async resolve(companyId) {
+      if (!(await workos.hasStoredSession())) return null;
+      const payload = await call(companyId, 'application_session_context', { p_company_id: companyId });
+      return toSession(payload);
     },
   },
 
   hub: {
-    async metrics() {
-      const { data, error } = await supabase.from(TABLES.hubMetrics).select('*');
-      const rows = unwrap(data, error, 'Load hub metrics');
-       
-      return (rows as any[]).map((r): HubMetric => ({
-        key: String(r.key),
-        label: String(r.label),
-        value: String(r.value),
-        delta: r.delta === null || r.delta === undefined ? null : Number(r.delta),
-        tone: r.tone ?? 'neutral',
-      }));
+    async metrics(companyId) {
+      const payload = await call(companyId, 'get_current_commercial_dashboard');
+      const rows = asRows(payload, 'metrics', 'tiles', 'kpis');
+      return rows.map(
+        (r): HubMetric => ({
+          key: str(r.key ?? r.id),
+          label: str(r.label ?? r.title),
+          value: str(r.value ?? r.formatted_value),
+          delta: numOrNull(r.delta ?? r.change_percent),
+          tone: (r.tone as HubMetric['tone']) ?? 'neutral',
+        })
+      );
     },
   },
 
   items: {
-    async list(params) {
-      let q = supabase.from(TABLES.items).select('*').limit(params?.limit ?? 100);
-      if (params?.search) q = q.or(`name.ilike.%${params.search}%,sku.ilike.%${params.search}%`);
-      if (params?.onlyBelowPar) q = q.in('status', ['low', 'out']);
-      const { data, error } = await q;
-       
-      return (unwrap(data, error, 'Load items') as any[]).map(toItem);
-    },
-    async byId(id) {
-      const { data, error } = await supabase.from(TABLES.items).select('*').eq('id', id).maybeSingle();
-      if (error) throw new Error(error.message);
-      return data ? toItem(data) : null;
-    },
-    async byBarcode(barcode) {
-      const { data, error } = await supabase.from(TABLES.items).select('*').eq('barcode', barcode).maybeSingle();
-      if (error) throw new Error(error.message);
-      return data ? toItem(data) : null;
+    async list(companyId, params) {
+      const payload = await call(companyId, 'product_directory_snapshot', { p_company_id: companyId });
+      let rows = asRows(payload, 'products', 'items', 'rows').map(toItem);
+      const q = params?.search?.trim().toLowerCase();
+      if (q) rows = rows.filter((i) => i.name.toLowerCase().includes(q) || i.sku.toLowerCase().includes(q));
+      if (params?.onlyBelowPar) rows = rows.filter((i) => i.status === 'low' || i.status === 'out');
+      return rows;
     },
   },
 
   purchaseOrders: {
-    async list(params) {
-      let q = supabase.from(TABLES.purchaseOrders).select('*').limit(params?.limit ?? 50);
-      if (params?.status !== 'all') q = q.in('status', ['draft', 'sent', 'confirmed', 'partial']);
-      const { data, error } = await q;
-       
-      return (unwrap(data, error, 'Load purchase orders') as any[]).map(toPurchaseOrder);
+    async list(companyId, params) {
+      const payload = await call(companyId, 'purchase_order_directory_snapshot', { p_company_id: companyId });
+      const rows = asRows(payload, 'purchaseOrders', 'purchase_orders', 'rows').map(toPurchaseOrder);
+      return params?.openOnly === false
+        ? rows
+        : rows.filter((o) => o.status !== 'received' && o.status !== 'cancelled');
     },
-    async byId(id) {
-      const { data, error } = await supabase.from(TABLES.purchaseOrders).select('*').eq('id', id).maybeSingle();
-      if (error) throw new Error(error.message);
-      if (!data) return null;
-      const { data: lines, error: lineError } = await supabase
-        .from(TABLES.purchaseOrderLines)
-        .select('*')
-        .eq('purchase_order_id', id);
-      if (lineError) throw new Error(lineError.message);
+  },
+
+  receiving: {
+    async startSession(companyId, warehouseId, deviceId) {
+      const payload = (await call(companyId, 'start_scanner_session', {
+        p_warehouse_id: warehouseId,
+        p_device_id: deviceId,
+      })) as Row;
       return {
-        ...toPurchaseOrder(data),
-         
-        lines: (lines ?? []).map((l: any) => ({
-          id: String(l.id),
-          itemId: String(l.item_id),
-          sku: String(l.sku ?? ''),
-          name: String(l.name ?? ''),
-          uom: String(l.uom ?? 'EA'),
-          quantityOrdered: Number(l.quantity_ordered ?? 0),
-          quantityReceived: Number(l.quantity_received ?? 0),
-          unitCost: l.unit_cost === null || l.unit_cost === undefined ? null : Number(l.unit_cost),
-        })),
-      };
+        sessionId: str(payload.session_id ?? payload.sessionId),
+        rowVersion: num(payload.row_version ?? payload.rowVersion, 1),
+        warehouseId,
+      } satisfies ScannerSession;
     },
-    async recordReceipt(scan) {
-      // Receiving mutates inventory and must obey the same rules as the ERP —
-      // so it runs as a Postgres function, never as a client-side write.
-      // Cast is required only while database.types.ts is the permissive placeholder.
-      // Regenerate types from the live project and this narrows automatically.
-      const { error } = await (supabase.rpc as unknown as RpcFn)(RPC.recordReceipt, {
-        p_purchase_order_id: scan.purchaseOrderId,
-        p_line_id: scan.lineId,
-        p_quantity: scan.quantity,
-        p_scanned_at: scan.scannedAt,
+
+    async closeSession(companyId, session) {
+      await call(companyId, 'close_scanner_session', {
+        p_session_id: session.sessionId,
+        p_expected_row_version: session.rowVersion,
       });
-      if (error) throw new Error(`Record receipt failed: ${error.message}`);
+    },
+
+    async queue(companyId, goodsReceiptId) {
+      const payload = await call(companyId, 'get_governed_scanner_receiving_queue', {
+        p_goods_receipt_id: goodsReceiptId,
+      });
+      return asRows(payload).map(toReceivingTask);
+    },
+
+    async submitScan(companyId, input) {
+      await call(companyId, 'submit_scanner_scan', {
+        p_scanner_session_id: input.session.sessionId,
+        p_expected_session_row_version: input.session.rowVersion,
+        p_claim_id: input.claimId,
+        p_task_id: input.taskId,
+        p_task_type: input.taskType,
+        p_expected_task_row_version: input.taskRowVersion,
+        p_expected_requirement_id: input.expectedRequirementId,
+        p_raw_value: input.rawValue,
+        p_symbology: input.symbology,
+        p_input_method: input.inputMethod,
+        p_idempotency_key: input.idempotencyKey,
+        p_client_occurred_at: new Date().toISOString(),
+      });
     },
   },
 };
-
-async function mapSession(userId: string, email: string): Promise<Session> {
-  const { data } = await supabase.from(TABLES.profiles).select('*').eq('id', userId).maybeSingle();
-   
-  const p = data as any;
-  return {
-    userId,
-    email,
-    displayName: p?.display_name ?? email.split('@')[0] ?? 'User',
-    organizationId: String(p?.organization_id ?? ''),
-    organizationName: p?.organization_name ?? '',
-    role: p?.role ?? 'viewer',
-  };
-}

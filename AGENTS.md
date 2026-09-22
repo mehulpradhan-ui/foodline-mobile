@@ -55,25 +55,61 @@ Primary users are buyers and warehouse staff on a phone, often on bad connection
 
 **Backend is the ERP's existing Supabase project.** This app does not own data.
 
+## The backend is the live ERP — verified facts, not assumptions
+
+Read from `Foodlineai/frontend` (branch `mehul/ui-refresh-10sep`) on 22 Sep 2026:
+
+- **Supabase project `fzavogttmmyyeuguvmry`** (staging), shared with the web ERP.
+- **There is no REST API.** `supabase/functions/api-v1` returns HTTP 410: *"This legacy
+  API has been retired. Use the Supabase Data API, RLS-protected views, and approved RPCs."*
+  So every call from this app is an RPC. There are ~343 of them.
+- **WorkOS AuthKit owns the session, not Supabase Auth.** The web ERP does
+  `createClient(url, publishableKey, { accessToken: async () => workosToken })` —
+  Supabase trusts the WorkOS JWT as a third-party provider. **Never call `supabase.auth.*`.**
+- **Company scope travels in the `x-erp-company-id` header.** Selection is not
+  authorization: every public RPC re-validates active DB membership server-side.
+- `src/lib/database.types.ts` is copied verbatim from the ERP repo. Regenerate both
+  together — never hand-edit it.
+
+Mirror file in the ERP repo: `src/integrations/supabase/application-scope.server.ts`.
+If that file changes, `src/lib/supabase.ts` here probably needs the same change.
+
+## Receiving runs on the ERP's scanner subsystem
+
+The ERP already has a handheld API, which is the reason this app exists:
+
+```
+start_scanner_session → get_governed_scanner_receiving_queue
+  → claim_scanner_receiving_task → submit_scanner_scan
+  → save_governed_scanner_receiving_capture → close_scanner_session
+```
+
+Every mutation carries **row versions** (optimistic concurrency) and an
+**idempotency key**. Preserve both. A dropped connection mid-scan must never
+double-count stock — that property is the whole point, and it is easy to break
+by "simplifying" a retry.
+
 ## The one architectural rule
+
+
 
 Screens never import `@supabase/supabase-js`. They call `api` from `@/lib/api`.
 
 ```
-src/app/**          screens — expo-router, presentation + local state only
-src/lib/api/ports.ts     the interface every backend must satisfy
-src/lib/api/supabase-adapter.ts   the live implementation (RLS + RPC)
-src/lib/api/demo-adapter.ts       bundled fixtures, zero network
-src/lib/api/types.ts     OUR domain types, not raw DB rows
+src/app/**                       screens — expo-router, presentation + local state only
+src/lib/api/ports.ts             the interface every backend must satisfy
+src/lib/api/supabase-adapter.ts  the live implementation (WorkOS token + ERP RPCs)
+src/lib/api/demo-adapter.ts      bundled fixtures, zero network
+src/lib/api/types.ts             OUR domain types, not raw RPC payloads
+src/features/auth/workos.ts      AuthKit PKCE, tokens in SecureStore
 ```
 
 If the ERP schema changes, the fix belongs in the adapter's mappers. If a screen
 has a `snake_case` field name in it, that is a bug.
 
-**Writes that touch inventory, orders or money go through Postgres functions
-(`supabase.rpc`), never direct table writes.** Business rules must not be
-duplicated between the web ERP and this app — that divergence is the failure mode
-we are explicitly designing against.
+**Everything is an RPC.** There are no direct table reads or writes — the ERP
+retired that path. Business rules must never be duplicated between the web ERP
+and this app; that divergence is the failure mode we are explicitly designing against.
 
 ## Demo mode
 

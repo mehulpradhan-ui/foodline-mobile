@@ -4,6 +4,7 @@ import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState, ErrorState, Loading, Screen } from '@/components/ui';
+import { useCompanyId } from '@/features/auth/auth-context';
 import { api, type PurchaseOrder } from '@/lib/api';
 
 const STATUS_TONE: Record<PurchaseOrder['status'], string> = {
@@ -17,9 +18,10 @@ const STATUS_TONE: Record<PurchaseOrder['status'], string> = {
 
 export default function Orders() {
   const [showAll, setShowAll] = useState(false);
+  const companyId = useCompanyId();
   const orders = useQuery({
-    queryKey: ['purchase-orders', showAll],
-    queryFn: () => api.purchaseOrders.list({ status: showAll ? 'all' : 'open' }),
+    queryKey: ['purchase-orders', companyId, showAll],
+    queryFn: () => api.purchaseOrders.list(companyId, { openOnly: !showAll }),
   });
 
   return (

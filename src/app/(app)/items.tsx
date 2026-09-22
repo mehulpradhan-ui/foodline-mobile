@@ -4,6 +4,7 @@ import { FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState, ErrorState, Loading, Screen, StatusPill } from '@/components/ui';
+import { useCompanyId } from '@/features/auth/auth-context';
 import { api, type Item } from '@/lib/api';
 
 const STATUS_LABEL: Record<Item['status'], string> = {
@@ -17,10 +18,11 @@ export default function Items() {
   const [search, setSearch] = useState('');
   const [belowParOnly, setBelowParOnly] = useState(false);
   const deferredSearch = useDeferredValue(search);
+  const companyId = useCompanyId();
 
   const items = useQuery({
-    queryKey: ['items', deferredSearch, belowParOnly],
-    queryFn: () => api.items.list({ search: deferredSearch, onlyBelowPar: belowParOnly }),
+    queryKey: ['items', companyId, deferredSearch, belowParOnly],
+    queryFn: () => api.items.list(companyId, { search: deferredSearch, onlyBelowPar: belowParOnly }),
   });
 
   return (

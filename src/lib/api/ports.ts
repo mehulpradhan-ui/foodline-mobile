@@ -1,31 +1,58 @@
-import type { HubMetric, Item, PurchaseOrder, ReceivingScan, Session, UUID } from './types';
+import type {
+  HubMetric,
+  Item,
+  PurchaseOrder,
+  ReceivingTask,
+  ScannerSession,
+  Session,
+  UUID,
+} from './types';
 
 /**
- * The single seam between the app and whatever is behind it.
+ * The single seam between the app and the ERP.
  *
- * Today: Supabase (direct, guarded by RLS) or the bundled demo adapter.
- * Later: a REST/Edge gateway in front of the ERP — implement this interface
- * once and no screen changes.
+ * Live implementation calls the `erp_api` / public RPCs on the shared Supabase
+ * project. The demo implementation serves fixtures. Screens depend only on this.
  */
 export interface FoodlineApi {
-  auth: {
-    signInWithPassword(email: string, password: string): Promise<Session>;
+  session: {
+    /** WorkOS AuthKit hosted flow. */
+    signIn(): Promise<void>;
     signOut(): Promise<void>;
-    getSession(): Promise<Session | null>;
+    /** `application_session_context` — null when no stored WorkOS session. */
+    resolve(companyId: UUID | null): Promise<Session | null>;
   };
   hub: {
-    metrics(): Promise<HubMetric[]>;
+    metrics(companyId: UUID): Promise<HubMetric[]>;
   };
   items: {
-    list(params?: { search?: string; onlyBelowPar?: boolean; limit?: number }): Promise<Item[]>;
-    byId(id: UUID): Promise<Item | null>;
-    byBarcode(barcode: string): Promise<Item | null>;
+    list(companyId: UUID, params?: { search?: string; onlyBelowPar?: boolean }): Promise<Item[]>;
   };
   purchaseOrders: {
-    list(params?: { status?: PurchaseOrderStatusFilter; limit?: number }): Promise<PurchaseOrder[]>;
-    byId(id: UUID): Promise<PurchaseOrder | null>;
-    recordReceipt(scan: ReceivingScan): Promise<void>;
+    list(companyId: UUID, params?: { openOnly?: boolean }): Promise<PurchaseOrder[]>;
+  };
+  receiving: {
+    /** `start_scanner_session` */
+    startSession(companyId: UUID, warehouseId: UUID, deviceId: string): Promise<ScannerSession>;
+    /** `close_scanner_session` */
+    closeSession(companyId: UUID, session: ScannerSession): Promise<void>;
+    /** `get_governed_scanner_receiving_queue` */
+    queue(companyId: UUID, goodsReceiptId: UUID): Promise<ReceivingTask[]>;
+    /** `submit_scanner_scan` — idempotent, optimistic-concurrency guarded. */
+    submitScan(
+      companyId: UUID,
+      input: {
+        session: ScannerSession;
+        claimId: UUID;
+        taskId: UUID;
+        taskType: string;
+        taskRowVersion: number;
+        expectedRequirementId: UUID;
+        rawValue: string;
+        symbology: string;
+        inputMethod: 'scan' | 'manual';
+        idempotencyKey: string;
+      }
+    ): Promise<void>;
   };
 }
-
-export type PurchaseOrderStatusFilter = 'open' | 'all';

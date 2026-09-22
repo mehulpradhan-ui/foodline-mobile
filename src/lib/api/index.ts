@@ -4,8 +4,8 @@ import type { FoodlineApi } from './ports';
 import { supabaseApi } from './supabase-adapter';
 
 /**
- * Set EXPO_PUBLIC_DEMO_MODE=1 to run the whole app on bundled fixtures —
- * no backend, no credentials, works on a plane. Unset it to hit Supabase.
+ * EXPO_PUBLIC_DEMO_MODE=1 runs the whole app on bundled fixtures — no backend,
+ * no WorkOS, works on a plane. Unset it to hit the live ERP.
  */
 export const api: FoodlineApi = isDemoMode ? demoApi : supabaseApi;
 

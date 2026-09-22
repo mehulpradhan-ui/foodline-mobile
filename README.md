@@ -37,8 +37,18 @@ src/features/       cross-screen logic (auth)
 
 ## Wiring to the live ERP
 
-1. `npx supabase gen types typescript --project-id <id> > src/lib/database.types.ts`
-2. Fill in the `TABLES` / `RPC` maps at the top of `src/lib/api/supabase-adapter.ts`
-3. Set the Supabase vars in `.env.local` and drop `EXPO_PUBLIC_DEMO_MODE`
+Already wired against the real backend (Supabase `fzavogttmmyyeuguvmry`, the same
+project the web ERP uses). `src/lib/database.types.ts` is the ERP's generated types,
+copied verbatim. To go live:
 
-Nothing outside that adapter should need to change.
+1. Put the Supabase **publishable key** in `.env.local`
+2. Set `EXPO_PUBLIC_DEMO_MODE=0`
+3. Register `foodline://auth/callback` as a WorkOS AuthKit redirect URI
+
+Auth is **WorkOS AuthKit**, not Supabase Auth — the WorkOS access token is handed to
+Supabase as a third-party JWT, exactly as the web ERP does. Company scope travels in
+the `x-erp-company-id` header.
+
+Receiving is built on the ERP's existing scanner RPCs (`start_scanner_session`,
+`get_governed_scanner_receiving_queue`, `submit_scanner_scan`), with row-version and
+idempotency guards preserved.

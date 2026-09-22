@@ -1,47 +1,35 @@
 import type { FoodlineApi } from './ports';
-import type { HubMetric, Item, PurchaseOrder, Session } from './types';
+import type { HubMetric, Item, PurchaseOrder, ReceivingTask, Session } from './types';
+
+const COMPANY_ID = '00000000-0000-4000-8000-000000000001';
 
 const SESSION: Session = {
-  userId: 'demo-user',
-  email: 'demo@foodline.ai',
-  displayName: 'Demo Buyer',
-  organizationId: 'demo-org',
-  organizationName: 'Atlanta Fresh Distribution',
-  role: 'buyer',
+  actorId: '00000000-0000-4000-8000-0000000000aa',
+  companyId: COMPANY_ID,
+  companies: [
+    {
+      id: COMPANY_ID,
+      name: 'Atlanta Fresh Distribution',
+      slug: 'atlanta-fresh',
+      roleKey: 'buyer',
+      permissionKeys: ['purchasing.read', 'inventory.read', 'receiving.scan'],
+    },
+  ],
 };
 
 const ITEMS: Item[] = [
   { id: 'i1', sku: 'PRD-1042', name: 'Romaine Hearts, 24ct', category: 'Produce', uom: 'CS', onHand: 18, onOrder: 40, parLevel: 60, daysCover: 2.1, lastCost: 32.5, primaryVendorName: 'Valley Greens', status: 'low' },
-  { id: 'i2', sku: 'DRY-2210', name: 'Olive Oil, Extra Virgin 4/1gal', category: 'Dry Goods', uom: 'CS', onHand: 96, onOrder: 0, parLevel: 60, daysCover: 22.4, lastCost: 88.0, primaryVendorName: 'Mediterra Imports', status: 'over' },
+  { id: 'i2', sku: 'DRY-2210', name: 'Olive Oil, Extra Virgin 4/1gal', category: 'Dry Goods', uom: 'CS', onHand: 96, onOrder: 0, parLevel: 60, daysCover: 22.4, lastCost: 88, primaryVendorName: 'Mediterra Imports', status: 'over' },
   { id: 'i3', sku: 'PRO-0771', name: 'Chicken Breast, Boneless 40lb', category: 'Protein', uom: 'CS', onHand: 0, onOrder: 24, parLevel: 30, daysCover: 0, lastCost: 104.75, primaryVendorName: 'Southern Poultry Co', status: 'out' },
   { id: 'i4', sku: 'DAI-0310', name: 'Heavy Cream 12/qt', category: 'Dairy', uom: 'CS', onHand: 44, onOrder: 12, parLevel: 40, daysCover: 6.8, lastCost: 41.2, primaryVendorName: 'Peachtree Dairy', status: 'ok' },
   { id: 'i5', sku: 'FRZ-5580', name: 'Shoestring Fries 6/5lb', category: 'Frozen', uom: 'CS', onHand: 7, onOrder: 0, parLevel: 25, daysCover: 1.4, lastCost: 27.9, primaryVendorName: 'Northline Frozen', status: 'low' },
-  { id: 'i6', sku: 'PRD-1188', name: 'Roma Tomatoes 25lb', category: 'Produce', uom: 'CS', onHand: 31, onOrder: 20, parLevel: 30, daysCover: 4.2, lastCost: 24.0, primaryVendorName: 'Valley Greens', status: 'ok' },
+  { id: 'i6', sku: 'PRD-1188', name: 'Roma Tomatoes 25lb', category: 'Produce', uom: 'CS', onHand: 31, onOrder: 20, parLevel: 30, daysCover: 4.2, lastCost: 24, primaryVendorName: 'Valley Greens', status: 'ok' },
 ];
 
-const BARCODES: Record<string, string> = {
-  '0012345678905': 'i1',
-  '0098765432109': 'i3',
-  '0055512345678': 'i4',
-};
-
 const ORDERS: PurchaseOrder[] = [
-  {
-    id: 'po1', number: 'PO-4471', vendorId: 'v1', vendorName: 'Valley Greens', status: 'sent',
-    expectedAt: '2026-09-23', total: 2140.0, lineCount: 2,
-    lines: [
-      { id: 'l1', itemId: 'i1', sku: 'PRD-1042', name: 'Romaine Hearts, 24ct', uom: 'CS', quantityOrdered: 40, quantityReceived: 0, unitCost: 32.5 },
-      { id: 'l2', itemId: 'i6', sku: 'PRD-1188', name: 'Roma Tomatoes 25lb', uom: 'CS', quantityOrdered: 20, quantityReceived: 0, unitCost: 24.0 },
-    ],
-  },
-  {
-    id: 'po2', number: 'PO-4468', vendorId: 'v2', vendorName: 'Southern Poultry Co', status: 'partial',
-    expectedAt: '2026-09-22', total: 2514.0, lineCount: 1,
-    lines: [
-      { id: 'l3', itemId: 'i3', sku: 'PRO-0771', name: 'Chicken Breast, Boneless 40lb', uom: 'CS', quantityOrdered: 24, quantityReceived: 12, unitCost: 104.75 },
-    ],
-  },
-  { id: 'po3', number: 'PO-4455', vendorId: 'v3', vendorName: 'Peachtree Dairy', status: 'received', expectedAt: '2026-09-19', total: 494.4, lineCount: 1, lines: [] },
+  { id: 'po1', number: 'PO-4471', vendorId: 'v1', vendorName: 'Valley Greens', status: 'sent', expectedAt: '2026-09-23', total: 2140, lineCount: 2 },
+  { id: 'po2', number: 'PO-4468', vendorId: 'v2', vendorName: 'Southern Poultry Co', status: 'partial', expectedAt: '2026-09-22', total: 2514, lineCount: 1 },
+  { id: 'po3', number: 'PO-4455', vendorId: 'v3', vendorName: 'Peachtree Dairy', status: 'received', expectedAt: '2026-09-19', total: 494.4, lineCount: 1 },
 ];
 
 const METRICS: HubMetric[] = [
@@ -51,45 +39,86 @@ const METRICS: HubMetric[] = [
   { key: 'spend', label: 'Week spend', value: '$14.2K', delta: 8, tone: 'good' },
 ];
 
+const TASKS: ReceivingTask[] = [
+  { taskId: 't1', goodsReceiptId: 'gr1', purchaseOrderVersionLineId: 'povl1', productId: 'i1', productSku: 'PRD-1042', productName: 'Romaine Hearts, 24ct', lineNumber: 1, uomCode: 'CS', orderedBaseQuantity: 40, priorReceivedBaseQuantity: 0, remainingBaseQuantity: 40, receiptDocumentNumber: 'GR-2201', receiptRowVersion: 3, isEligible: true, blockerCode: null, tracksLots: true, tracksExpiry: true, catchWeight: false, temperatureRequired: true },
+  { taskId: 't2', goodsReceiptId: 'gr1', purchaseOrderVersionLineId: 'povl2', productId: 'i6', productSku: 'PRD-1188', productName: 'Roma Tomatoes 25lb', lineNumber: 2, uomCode: 'CS', orderedBaseQuantity: 20, priorReceivedBaseQuantity: 8, remainingBaseQuantity: 12, receiptDocumentNumber: 'GR-2201', receiptRowVersion: 3, isEligible: true, blockerCode: null, tracksLots: false, tracksExpiry: false, catchWeight: false, temperatureRequired: false },
+  { taskId: 't3', goodsReceiptId: 'gr1', purchaseOrderVersionLineId: 'povl3', productId: 'i3', productSku: 'PRO-0771', productName: 'Chicken Breast, Boneless 40lb', lineNumber: 3, uomCode: 'CS', orderedBaseQuantity: 24, priorReceivedBaseQuantity: 24, remainingBaseQuantity: 0, receiptDocumentNumber: 'GR-2201', receiptRowVersion: 3, isEligible: false, blockerCode: 'line_complete', tracksLots: true, tracksExpiry: true, catchWeight: true, temperatureRequired: true },
+];
+
+const BARCODES: Record<string, string> = {
+  '0012345678905': 't1',
+  '0055512345678': 't2',
+};
+
 const wait = (ms = 180) => new Promise((r) => setTimeout(r, ms));
+let signedIn = true;
 
 export const demoApi: FoodlineApi = {
-  auth: {
-    async signInWithPassword() { await wait(400); return SESSION; },
-    async signOut() { await wait(80); },
-    async getSession() { await wait(80); return SESSION; },
+  session: {
+    async signIn() {
+      await wait(400);
+      signedIn = true;
+    },
+    async signOut() {
+      await wait(80);
+      signedIn = false;
+    },
+    async resolve() {
+      await wait(120);
+      return signedIn ? SESSION : null;
+    },
   },
   hub: {
-    async metrics() { await wait(); return METRICS; },
+    async metrics() {
+      await wait();
+      return METRICS;
+    },
   },
   items: {
-    async list(params) {
+    async list(_companyId, params) {
       await wait();
       let rows = ITEMS;
       if (params?.onlyBelowPar) rows = rows.filter((i) => i.status === 'low' || i.status === 'out');
       const q = params?.search?.trim().toLowerCase();
       if (q) rows = rows.filter((i) => i.name.toLowerCase().includes(q) || i.sku.toLowerCase().includes(q));
-      return params?.limit ? rows.slice(0, params.limit) : rows;
-    },
-    async byId(id) { await wait(80); return ITEMS.find((i) => i.id === id) ?? null; },
-    async byBarcode(barcode) {
-      await wait(120);
-      const id = BARCODES[barcode];
-      return id ? (ITEMS.find((i) => i.id === id) ?? null) : null;
+      return rows;
     },
   },
   purchaseOrders: {
-    async list(params) {
+    async list(_companyId, params) {
       await wait();
-      const rows = params?.status === 'all' ? ORDERS : ORDERS.filter((o) => o.status !== 'received' && o.status !== 'cancelled');
-      return params?.limit ? rows.slice(0, params.limit) : rows;
+      return params?.openOnly === false
+        ? ORDERS
+        : ORDERS.filter((o) => o.status !== 'received' && o.status !== 'cancelled');
     },
-    async byId(id) { await wait(80); return ORDERS.find((o) => o.id === id) ?? null; },
-    async recordReceipt(scan) {
-      await wait(200);
-      const order = ORDERS.find((o) => o.id === scan.purchaseOrderId);
-      const line = order?.lines?.find((l) => l.id === scan.lineId);
-      if (line) line.quantityReceived = Math.min(line.quantityOrdered, line.quantityReceived + scan.quantity);
+  },
+  receiving: {
+    async startSession(_companyId, warehouseId) {
+      await wait(250);
+      return { sessionId: 'demo-session', rowVersion: 1, warehouseId };
+    },
+    async closeSession() {
+      await wait(100);
+    },
+    async queue() {
+      await wait();
+      return TASKS;
+    },
+    async submitScan(_companyId, input) {
+      await wait(160);
+      const taskId = BARCODES[input.rawValue];
+      if (!taskId) throw new Error(`No open receiving line matches barcode ${input.rawValue}`);
+      const task = TASKS.find((t) => t.taskId === taskId);
+      if (!task) throw new Error('Task not found');
+      if (task.remainingBaseQuantity <= 0) throw new Error(`${task.productName} is already fully received`);
+      task.priorReceivedBaseQuantity += 1;
+      task.remainingBaseQuantity -= 1;
     },
   },
 };
+
+/** Demo-only: lets the receiving screen resolve a scan to a task for display. */
+export function demoTaskForBarcode(barcode: string): ReceivingTask | null {
+  const id = BARCODES[barcode];
+  return id ? (TASKS.find((t) => t.taskId === id) ?? null) : null;
+}

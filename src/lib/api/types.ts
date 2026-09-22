@@ -1,20 +1,25 @@
 /**
  * Domain types for the mobile client.
  *
- * These are deliberately OUR types, not raw Supabase rows. Every adapter maps
- * the backend shape into these, so a schema change in the ERP is absorbed in
- * one mapper instead of rippling through every screen.
+ * Deliberately OUR shapes, not raw RPC payloads. Adapters map into these, so an
+ * ERP payload change is absorbed in one mapper instead of across every screen.
  */
 
 export type UUID = string;
 
+export type Company = {
+  id: UUID;
+  name: string;
+  slug: string;
+  roleKey: string;
+  permissionKeys: string[];
+};
+
+/** Mirrors `application_session_context` / `erpSessionSchema` in the web ERP. */
 export type Session = {
-  userId: UUID;
-  email: string;
-  displayName: string;
-  organizationId: UUID;
-  organizationName: string;
-  role: 'owner' | 'buyer' | 'warehouse' | 'sales' | 'viewer';
+  actorId: UUID;
+  companyId: UUID | null;
+  companies: Company[];
 };
 
 export type StockStatus = 'ok' | 'low' | 'out' | 'over';
@@ -28,7 +33,6 @@ export type Item = {
   onHand: number;
   onOrder: number;
   parLevel: number | null;
-  /** Days of cover at current velocity. Null when velocity is unknown. */
   daysCover: number | null;
   lastCost: number | null;
   primaryVendorName: string | null;
@@ -36,17 +40,6 @@ export type Item = {
 };
 
 export type PurchaseOrderStatus = 'draft' | 'sent' | 'confirmed' | 'partial' | 'received' | 'cancelled';
-
-export type PurchaseOrderLine = {
-  id: UUID;
-  itemId: UUID;
-  sku: string;
-  name: string;
-  uom: string;
-  quantityOrdered: number;
-  quantityReceived: number;
-  unitCost: number | null;
-};
 
 export type PurchaseOrder = {
   id: UUID;
@@ -57,21 +50,45 @@ export type PurchaseOrder = {
   expectedAt: string | null;
   total: number | null;
   lineCount: number;
-  lines?: PurchaseOrderLine[];
 };
 
 export type HubMetric = {
   key: string;
   label: string;
   value: string;
-  /** Percentage change vs prior period, already signed. */
   delta: number | null;
   tone: 'neutral' | 'good' | 'warn' | 'bad';
 };
 
-export type ReceivingScan = {
-  purchaseOrderId: UUID;
-  lineId: UUID;
-  quantity: number;
-  scannedAt: string;
+/**
+ * One line waiting to be received, from `get_governed_scanner_receiving_queue`.
+ * Quantities are base-UOM numerics returned as strings by Postgres.
+ */
+export type ReceivingTask = {
+  taskId: UUID;
+  goodsReceiptId: UUID;
+  purchaseOrderVersionLineId: UUID;
+  productId: UUID;
+  productSku: string;
+  productName: string;
+  lineNumber: number;
+  uomCode: string;
+  orderedBaseQuantity: number;
+  priorReceivedBaseQuantity: number;
+  remainingBaseQuantity: number;
+  receiptDocumentNumber: string;
+  receiptRowVersion: number;
+  isEligible: boolean;
+  blockerCode: string | null;
+  tracksLots: boolean;
+  tracksExpiry: boolean;
+  catchWeight: boolean;
+  temperatureRequired: boolean;
+};
+
+/** A live scanner session — `start_scanner_session` / `close_scanner_session`. */
+export type ScannerSession = {
+  sessionId: UUID;
+  rowVersion: number;
+  warehouseId: UUID;
 };
