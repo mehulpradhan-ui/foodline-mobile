@@ -39,3 +39,17 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local env
+.env
+.env.local
+.env.*.local
+
+# native projects are generated (CNG) — never commit
+/ios
+/android
+
+# build output
+*.apk
+*.aab
+*.ipa
