@@ -2,14 +2,20 @@ import type { FoodlineApi } from './ports';
 import type {
   ActionItem,
   ActivityLine,
+  Customer,
+  DeliveryRoute,
   DockReceipt,
   HomeSummary,
   HubMetric,
   Item,
   PurchaseOrder,
+  PurchasingSummary,
   ReceivingTask,
   ReceivingWarehouse,
+  SalesOrder,
+  SalesSummary,
   Session,
+  StopDetail,
 } from './types';
 
 const COMPANY_ID = '00000000-0000-4000-8000-000000000001';
@@ -98,6 +104,65 @@ const DOCK: DockReceipt[] = [
   { goodsReceiptId: 'gr3', documentNumber: 'GR-2199', warehouseId: 'wh-sav', vendorName: 'Northline Frozen', purchaseOrderNumber: 'PO-4460', status: 'open', rowVersion: 1, openLineCount: 4, arrivedAt: '2026-09-23T06:05:00Z' },
 ];
 
+
+const SALES_ORDERS: SalesOrder[] = [
+  { id: 'so1', number: 'SO-1048', customerId: 'c1', customerName: 'Riverside Market', state: 'short', attention: 'Review alternatives', total: 1840.25, promisedFor: '2026-09-23' },
+  { id: 'so2', number: 'SO-1042', customerId: 'c2', customerName: 'Cedar Grove', state: 'out_for_delivery', attention: 'View delivery progress', total: 964.0, promisedFor: '2026-09-23' },
+  { id: 'so3', number: 'SO-1039', customerId: 'c3', customerName: 'Hillside Deli', state: 'delivered', attention: null, total: 412.8, promisedFor: '2026-09-22' },
+];
+
+const CUSTOMERS: Customer[] = [
+  { id: 'c2', name: 'Cedar Grove Catering', subtitle: 'Open customer details' },
+  { id: 'c1', name: 'Riverside Market', subtitle: 'Open customer details' },
+  { id: 'c3', name: 'Hillside Deli', subtitle: 'Open customer details' },
+];
+
+const SALES: SalesSummary = {
+  ordersNeedingAttention: SALES_ORDERS.filter((o) => o.attention !== null),
+  customers: CUSTOMERS,
+  aiInsight: { body: 'Riverside has a shortage to resolve.', actionLabel: 'Review order' },
+};
+
+const PURCHASING: PurchasingSummary = {
+  approvalCount: 2,
+  supplyIssueCount: 3,
+  topIssue: {
+    productName: 'Roma tomatoes',
+    ordersAffected: 3,
+    neededQuantity: 18,
+    incomingQuantity: 8,
+    uom: 'cases',
+  },
+  awaitingReview: [
+    { id: 'po4', number: 'PO-2084', vendorId: 'v4', vendorName: 'Fresh Valley', status: 'draft', expectedAt: '2026-09-24', total: 1260, lineCount: 6 },
+  ],
+  incomingToday: [
+    { id: 'po5', number: 'PO-2079', vendorId: 'v5', vendorName: 'Green Acres', status: 'sent', expectedAt: '2026-09-23', total: 890.5, lineCount: 4 },
+  ],
+};
+
+const ROUTE: DeliveryRoute = {
+  id: 'rt1',
+  code: 'Route A-12',
+  vehicleLabel: 'Truck 04',
+  stopsTotal: 8,
+  stopsComplete: 2,
+  stops: [
+    { id: 's1', sequence: 1, customerName: 'Morning Bakery', address: '12 Auburn Ave, Atlanta', windowLabel: '7:00-7:30 AM', note: null, state: 'complete', phone: '+1 404 555 0111' },
+    { id: 's2', sequence: 2, customerName: 'Hillside Deli', address: '88 Edgewood Ave, Atlanta', windowLabel: '8:15-8:45 AM', note: null, state: 'complete', phone: '+1 404 555 0112' },
+    { id: 's3', sequence: 3, customerName: 'Cedar Grove Catering', address: '180 Peachtree St, Atlanta', windowLabel: '10:00-10:30 AM', note: 'Use rear loading entrance', state: 'arrived', phone: '+1 404 555 0113' },
+    { id: 's4', sequence: 4, customerName: 'Riverside Market', address: '420 Marietta St, Atlanta', windowLabel: '11:00-11:30 AM', note: null, state: 'pending', phone: '+1 404 555 0114' },
+  ],
+};
+
+const STOP_LINES: Record<string, StopDetail['lines']> = {
+  s3: [
+    { id: 'sl1', productName: 'Roma tomatoes', quantityLabel: '4 cases', state: 'To confirm' },
+    { id: 'sl2', productName: 'Baby spinach', quantityLabel: '2 cases', state: 'To confirm' },
+    { id: 'sl3', productName: 'Whole milk', quantityLabel: '6 cases', state: 'To confirm' },
+  ],
+};
+
 const wait = (ms = 180) => new Promise((r) => setTimeout(r, ms));
 let signedIn = true;
 
@@ -145,7 +210,35 @@ export const demoApi: FoodlineApi = {
         ? ORDERS
         : ORDERS.filter((o) => o.status !== 'received' && o.status !== 'cancelled');
     },
+    async summary() {
+      await wait();
+      return PURCHASING;
+    },
   },
+  sales: {
+    async summary() {
+      await wait();
+      return SALES;
+    },
+    async customers() {
+      await wait();
+      return CUSTOMERS;
+    },
+  },
+
+  routes: {
+    async today() {
+      await wait();
+      return ROUTE;
+    },
+    async stop(_companyId, stopId) {
+      await wait();
+      const stop = ROUTE.stops.find((s2) => s2.id === stopId);
+      if (!stop) return null;
+      return { stop, lines: STOP_LINES[stopId] ?? [] };
+    },
+  },
+
   receiving: {
     async warehouses() {
       await wait();

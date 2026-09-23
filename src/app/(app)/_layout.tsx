@@ -29,9 +29,13 @@ export default function AppLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="sales" options={{ title: 'Sales & Customers' }} />
       <Stack.Screen name="inventory" options={{ title: 'Inventory' }} />
       <Stack.Screen name="purchasing" options={{ title: 'Purchasing' }} />
       <Stack.Screen name="receiving" options={{ title: 'Receiving' }} />
+      <Stack.Screen name="routes" options={{ title: 'Routes & Delivery' }} />
+      <Stack.Screen name="stop/[id]" options={{ title: 'Stop' }} />
+      <Stack.Screen name="tools/[module]" options={{ title: 'Tools' }} />
     </Stack>
   );
 }

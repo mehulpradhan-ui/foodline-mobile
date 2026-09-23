@@ -270,3 +270,191 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
     </View>
   );
 }
+
+/** The tinted hero card at the top of a module screen (mockups 02, 03). */
+export function ModuleHero({
+  eyebrow,
+  title,
+  subtitle,
+  primary,
+  secondary,
+}: {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  primary?: { label: string; icon?: IconName; onPress: () => void };
+  secondary?: { label: string; icon?: IconName; onPress: () => void };
+}) {
+  return (
+    <View className="gap-3 rounded-2xl border border-brand-border bg-brand-tint p-4">
+      <View className="gap-1">
+        {eyebrow ? <GroupLabel label={eyebrow} /> : null}
+        <Text className="text-2xl font-bold text-ink">{title}</Text>
+        {subtitle ? <Text className="text-sm text-ink-muted">{subtitle}</Text> : null}
+      </View>
+      {primary || secondary ? (
+        <View className="flex-row items-center gap-3">
+          {primary ? (
+            <View className="flex-1">
+              <Button label={primary.label} icon={primary.icon} onPress={primary.onPress} />
+            </View>
+          ) : null}
+          {secondary ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={secondary.onPress}
+              hitSlop={8}
+              className="flex-row items-center gap-2 px-2"
+            >
+              <Feather name={secondary.icon ?? 'zap'} size={18} color={COLORS.brand} />
+              <Text className="text-base font-bold text-brand">{secondary.label}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Section heading with a "See all" affordance (mockup 02). */
+export function SeeAllHeader({ title, onSeeAll }: { title: string; onSeeAll?: () => void }) {
+  return (
+    <View className="flex-row items-baseline justify-between">
+      <Text className="text-xl font-bold text-ink">{title}</Text>
+      {onSeeAll ? (
+        <Pressable accessibilityRole="button" onPress={onSeeAll} hitSlop={8}>
+          <Text className="text-sm font-bold text-brand">See all</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/** Small paired stat, optionally in an alert tone (mockup 03). */
+export function MiniStat({
+  icon,
+  value,
+  label,
+  tone = 'brand',
+}: {
+  icon: IconName;
+  value: string;
+  label: string;
+  tone?: 'brand' | 'danger';
+}) {
+  const alert = tone === 'danger';
+  return (
+    <View
+      className={`min-w-[46%] flex-1 flex-row items-center gap-3 rounded-2xl border p-4 ${
+        alert ? 'border-danger/20 bg-danger-tint' : 'border-brand-border bg-brand-tint'
+      }`}
+    >
+      <Feather name={icon} size={22} color={alert ? COLORS.danger : COLORS.brand} />
+      <View className="flex-1">
+        <Text className="text-2xl font-bold text-ink">{value}</Text>
+        <Text className="text-sm text-ink-muted" numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/** Amber "needs action" card with an inline primary button (mockup 03). */
+export function AlertCard({
+  title,
+  lines,
+  action,
+}: {
+  title: string;
+  lines: string[];
+  action?: { label: string; onPress: () => void };
+}) {
+  return (
+    <View className="gap-3 rounded-2xl border border-warn-border bg-warn-tint p-4">
+      <View className="flex-row items-start gap-3">
+        <Feather name="alert-triangle" size={20} color={COLORS.warn} />
+        <View className="flex-1 gap-0.5">
+          <Text className="text-base font-bold text-ink">{title}</Text>
+          {lines.map((line) => (
+            <Text key={line} className="text-sm text-ink-muted">
+              {line}
+            </Text>
+          ))}
+        </View>
+      </View>
+      {action ? <Button label={action.label} onPress={action.onPress} /> : null}
+    </View>
+  );
+}
+
+/** The small "View" chip some tool rows carry (mockups 02, 03). */
+export function ViewBadge() {
+  return (
+    <View className="rounded-md bg-brand-tint px-2 py-1">
+      <Text className="text-[11px] font-bold text-brand">View</Text>
+    </View>
+  );
+}
+
+/** An inline text action on the right of a row ("Review PO →"). */
+export function RowAction({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={8} className="flex-row items-center gap-1">
+      <Text className="text-sm font-bold text-brand">{label}</Text>
+      <Feather name="arrow-right" size={15} color={COLORS.brand} />
+    </Pressable>
+  );
+}
+
+/** A tappable field placeholder — proof-of-delivery inputs (mockup 05). */
+export function FieldRow({
+  icon,
+  placeholder,
+  value,
+  onPress,
+}: {
+  icon: IconName;
+  placeholder: string;
+  value?: string | null;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      className="flex-row items-center gap-3 rounded-2xl border border-surface-line bg-surface-card px-4 py-3.5 active:bg-brand-tint/40"
+    >
+      <Feather name={icon} size={20} color={value ? COLORS.brand : COLORS.inkFaint} />
+      <Text className={`flex-1 text-base ${value ? 'font-semibold text-ink' : 'text-ink-faint'}`} numberOfLines={1}>
+        {value || placeholder}
+      </Text>
+      {value ? <Feather name="check" size={18} color={COLORS.brand} /> : null}
+    </Pressable>
+  );
+}
+
+/** A compact three-column line: name · quantity · state (mockup 05 checklist). */
+export function ChecklistLine({
+  name,
+  quantity,
+  state,
+  last = false,
+}: {
+  name: string;
+  quantity: string;
+  state: string;
+  last?: boolean;
+}) {
+  return (
+    <View
+      className={`flex-row items-center gap-3 bg-surface-card px-4 py-3.5 ${last ? '' : 'border-b border-surface-line'}`}
+    >
+      <Text className="flex-1 text-base font-semibold text-ink" numberOfLines={1}>
+        {name}
+      </Text>
+      <Text className="text-sm text-ink">{quantity}</Text>
+      <Text className="w-24 text-right text-sm text-ink-muted">{state}</Text>
+    </View>
+  );
+}

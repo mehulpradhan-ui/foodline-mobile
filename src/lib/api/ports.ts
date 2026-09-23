@@ -1,13 +1,18 @@
 import type {
+  Customer,
+  DeliveryRoute,
   DockReceipt,
   HomeSummary,
   HubMetric,
   Item,
   PurchaseOrder,
+  PurchasingSummary,
   ReceivingTask,
   ReceivingWarehouse,
+  SalesSummary,
   ScannerSession,
   Session,
+  StopDetail,
   UUID,
 } from './types';
 
@@ -37,6 +42,19 @@ export interface FoodlineApi {
   };
   purchaseOrders: {
     list(companyId: UUID, params?: { openOnly?: boolean }): Promise<PurchaseOrder[]>;
+    /** Powers the Purchasing module screen (mockup 03). */
+    summary(companyId: UUID): Promise<PurchasingSummary>;
+  };
+  sales: {
+    /** `get_current_sales_orders_workspace` — one call for the Sales screen. */
+    summary(companyId: UUID): Promise<SalesSummary>;
+    customers(companyId: UUID): Promise<Customer[]>;
+  };
+  routes: {
+    /** `get_current_delivery_route_workspace` — today's assigned route. */
+    today(companyId: UUID): Promise<DeliveryRoute | null>;
+    /** `get_current_delivery_stop_detail` */
+    stop(companyId: UUID, stopId: UUID): Promise<StopDetail | null>;
   };
   receiving: {
     /** `list_receiving_location_warehouses` — warehouses this actor can receive into. */

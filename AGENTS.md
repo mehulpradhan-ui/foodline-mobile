@@ -143,6 +143,29 @@ Purchasing, Inventory Employee, Routes/Driver. Build to them.
   string.
 - Icons are `@expo/vector-icons` Feather, to match the line weight in the designs.
 
+## Screen map
+
+Every module screen follows the same skeleton from the mockups: `AppHeader`
+(context pill) → `ModuleHero` or a big title → "needs attention" list →
+supporting list → AI card. The `<Module> tools` directories are all one screen,
+`app/(app)/tools/[module].tsx`, driven by `features/workspaces/tools-catalog.ts`
+— add a tool there, not in a new file.
+
+| Route | Mockup | Live RPCs |
+|---|---|---|
+| `(tabs)/index` Home | 01 left | `get_current_commercial_dashboard` |
+| `(tabs)/more` All workspaces | 01 right | — (static catalog) |
+| `sales` | 02 left | `get_current_sales_orders_workspace` |
+| `purchasing` | 03 left | `purchase_order_directory_snapshot` |
+| `inventory` | 04 left | `product_directory_snapshot` |
+| `routes` | 05 left | `get_current_delivery_route_workspace` |
+| `stop/[id]` | 05 right | `get_current_delivery_stop_detail` |
+| `receiving` | — | the scanner subsystem (see above) |
+| `tools/[module]` | 02/03/04 right | — (static catalog) |
+
+Unbuilt destinations render as "Coming soon" rather than being hidden, so the
+demo shows the real shape of the product and nothing dead-ends silently.
+
 ## Conventions
 
 - TypeScript strict. No `any` outside adapter mapper boundaries (already isolated there).
