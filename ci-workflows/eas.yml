@@ -1,0 +1,34 @@
+name: EAS Cloud Build
+
+# iOS + Android release builds on Expo's infrastructure.
+# No Xcode, no Android Studio, no Mac required — run it from any machine or the GitHub UI.
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS build profile
+        type: choice
+        options: [development, preview, demo, production]
+        default: preview
+      platform:
+        description: Target platform
+        type: choice
+        options: [android, ios, all]
+        default: all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: eas build --non-interactive --no-wait --platform ${{ inputs.platform }} --profile ${{ inputs.profile }}
