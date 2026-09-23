@@ -119,3 +119,28 @@ export type HomeSummary = {
   acrossCompany: ActivityLine[];
   aiSummary: { body: string; actionLabel: string } | null;
 };
+
+/** A warehouse the actor may receive into — `list_receiving_location_warehouses`. */
+export type ReceivingWarehouse = {
+  id: UUID;
+  code: string;
+  name: string;
+  /** Default receiving bin, when the ERP has one configured. */
+  receivingBinId: UUID | null;
+};
+
+export type GoodsReceiptStatus = 'open' | 'in_progress' | 'on_hold' | 'posted';
+
+/** An in-progress receipt on the dock — `get_governed_receiving_dock`. */
+export type DockReceipt = {
+  goodsReceiptId: UUID;
+  documentNumber: string;
+  warehouseId: UUID;
+  vendorName: string;
+  purchaseOrderNumber: string | null;
+  status: GoodsReceiptStatus;
+  rowVersion: number;
+  /** Lines still to receive; null when the dock payload does not carry it. */
+  openLineCount: number | null;
+  arrivedAt: string | null;
+};

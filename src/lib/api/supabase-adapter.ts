@@ -4,11 +4,13 @@ import type {
   ActionItem,
   ActivityLine,
   Company,
+  DockReceipt,
   HomeSummary,
   HubMetric,
   Item,
   PurchaseOrder,
   ReceivingTask,
+  ReceivingWarehouse,
   ScannerSession,
   Session,
   StockStatus,
@@ -111,6 +113,30 @@ function toReceivingTask(r: Row): ReceivingTask {
     tracksExpiry: r.track_expiry === true,
     catchWeight: r.catch_weight === true,
     temperatureRequired: r.temperature_required === true,
+  };
+}
+
+
+function toWarehouse(r: Row): ReceivingWarehouse {
+  return {
+    id: str(r.id ?? r.warehouse_id),
+    code: str(r.code ?? r.warehouse_code),
+    name: str(r.name ?? r.warehouse_name),
+    receivingBinId: (r.receiving_bin_id as string | null) ?? null,
+  };
+}
+
+function toDockReceipt(r: Row): DockReceipt {
+  return {
+    goodsReceiptId: str(r.goods_receipt_id ?? r.id),
+    documentNumber: str(r.document_number ?? r.goods_receipt_number ?? r.receipt_document_number),
+    warehouseId: str(r.warehouse_id),
+    vendorName: str(r.vendor_name),
+    purchaseOrderNumber: (r.purchase_order_number as string | null) ?? null,
+    status: (r.status as DockReceipt['status']) ?? 'open',
+    rowVersion: num(r.row_version ?? r.goods_receipt_row_version ?? r.receipt_row_version, 1),
+    openLineCount: numOrNull(r.open_line_count ?? r.remaining_line_count),
+    arrivedAt: (r.arrived_at as string | null) ?? null,
   };
 }
 
@@ -249,6 +275,18 @@ export const supabaseApi: FoodlineApi = {
   },
 
   receiving: {
+    async warehouses(companyId) {
+      const payload = await call(companyId, 'list_receiving_location_warehouses');
+      return asRows(payload, 'warehouses', 'rows').map(toWarehouse);
+    },
+
+    async dock(companyId, warehouseId) {
+      const payload = await call(companyId, 'get_governed_receiving_dock');
+      const rows = asRows(payload, 'receipts', 'goods_receipts', 'rows').map(toDockReceipt);
+      const open = rows.filter((r) => r.status !== 'posted');
+      return warehouseId ? open.filter((r) => r.warehouseId === warehouseId) : open;
+    },
+
     async startSession(companyId, warehouseId, deviceId) {
       const payload = (await call(companyId, 'start_scanner_session', {
         p_warehouse_id: warehouseId,

@@ -2,11 +2,13 @@ import type { FoodlineApi } from './ports';
 import type {
   ActionItem,
   ActivityLine,
+  DockReceipt,
   HomeSummary,
   HubMetric,
   Item,
   PurchaseOrder,
   ReceivingTask,
+  ReceivingWarehouse,
   Session,
 } from './types';
 
@@ -84,6 +86,18 @@ const HOME: HomeSummary = {
   },
 };
 
+
+const WAREHOUSES: ReceivingWarehouse[] = [
+  { id: 'wh-atl', code: 'ATL', name: 'Atlanta warehouse', receivingBinId: 'bin-atl-recv' },
+  { id: 'wh-sav', code: 'SAV', name: 'Savannah cross-dock', receivingBinId: 'bin-sav-recv' },
+];
+
+const DOCK: DockReceipt[] = [
+  { goodsReceiptId: 'gr1', documentNumber: 'GR-2201', warehouseId: 'wh-atl', vendorName: 'Valley Greens', purchaseOrderNumber: 'PO-4471', status: 'in_progress', rowVersion: 3, openLineCount: 2, arrivedAt: '2026-09-23T07:12:00Z' },
+  { goodsReceiptId: 'gr2', documentNumber: 'GR-2202', warehouseId: 'wh-atl', vendorName: 'Southern Poultry Co', purchaseOrderNumber: 'PO-4468', status: 'open', rowVersion: 1, openLineCount: 1, arrivedAt: '2026-09-23T08:40:00Z' },
+  { goodsReceiptId: 'gr3', documentNumber: 'GR-2199', warehouseId: 'wh-sav', vendorName: 'Northline Frozen', purchaseOrderNumber: 'PO-4460', status: 'open', rowVersion: 1, openLineCount: 4, arrivedAt: '2026-09-23T06:05:00Z' },
+];
+
 const wait = (ms = 180) => new Promise((r) => setTimeout(r, ms));
 let signedIn = true;
 
@@ -133,6 +147,15 @@ export const demoApi: FoodlineApi = {
     },
   },
   receiving: {
+    async warehouses() {
+      await wait();
+      return WAREHOUSES;
+    },
+    async dock(_companyId, warehouseId) {
+      await wait();
+      const open = DOCK.filter((r) => r.status !== 'posted');
+      return warehouseId ? open.filter((r) => r.warehouseId === warehouseId) : open;
+    },
     async startSession(_companyId, warehouseId) {
       await wait(250);
       return { sessionId: 'demo-session', rowVersion: 1, warehouseId };
@@ -140,9 +163,9 @@ export const demoApi: FoodlineApi = {
     async closeSession() {
       await wait(100);
     },
-    async queue() {
+    async queue(_companyId, goodsReceiptId) {
       await wait();
-      return TASKS;
+      return TASKS.filter((t) => t.goodsReceiptId === goodsReceiptId);
     },
     async submitScan(_companyId, input) {
       await wait(160);

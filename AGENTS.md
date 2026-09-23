@@ -79,10 +79,16 @@ If that file changes, `src/lib/supabase.ts` here probably needs the same change.
 The ERP already has a handheld API, which is the reason this app exists:
 
 ```
-start_scanner_session → get_governed_scanner_receiving_queue
-  → claim_scanner_receiving_task → submit_scanner_scan
-  → save_governed_scanner_receiving_capture → close_scanner_session
+list_receiving_location_warehouses   pick the warehouse (no args; company header scopes it)
+get_governed_receiving_dock          pick the delivery (no args; filtered client-side by warehouse)
+start_scanner_session                claim the work
+get_governed_scanner_receiving_queue what is still owed
+submit_scanner_scan                  record each case
+save_governed_scanner_receiving_capture / close_scanner_session
 ```
+
+Several of these take `Args: never` — they are scoped entirely by the WorkOS
+JWT plus the `x-erp-company-id` header. Do not invent parameters for them.
 
 Every mutation carries **row versions** (optimistic concurrency) and an
 **idempotency key**. Preserve both. A dropped connection mid-scan must never

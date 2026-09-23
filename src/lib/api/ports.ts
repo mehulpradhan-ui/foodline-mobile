@@ -1,9 +1,11 @@
 import type {
+  DockReceipt,
   HomeSummary,
   HubMetric,
   Item,
   PurchaseOrder,
   ReceivingTask,
+  ReceivingWarehouse,
   ScannerSession,
   Session,
   UUID,
@@ -37,6 +39,10 @@ export interface FoodlineApi {
     list(companyId: UUID, params?: { openOnly?: boolean }): Promise<PurchaseOrder[]>;
   };
   receiving: {
+    /** `list_receiving_location_warehouses` — warehouses this actor can receive into. */
+    warehouses(companyId: UUID): Promise<ReceivingWarehouse[]>;
+    /** `get_governed_receiving_dock` — receipts currently open on the dock. */
+    dock(companyId: UUID, warehouseId: UUID | null): Promise<DockReceipt[]>;
     /** `start_scanner_session` */
     startSession(companyId: UUID, warehouseId: UUID, deviceId: string): Promise<ScannerSession>;
     /** `close_scanner_session` */
